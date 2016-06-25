@@ -21,7 +21,8 @@
   "frameworks": {
     "net451": {
       "dependencies": {
-        "OmniSharp.ScriptCs": "1.0.0"
+        "OmniSharp.ScriptCs": "1.0.0",
+        "OmniSharp.AzureFunctions": "1.0.0"
       }
     },
     "netcoreapp1.0": {
