@@ -50,7 +50,7 @@ namespace OmniSharp.ScriptCs
 
         public string Key { get { return "ScriptCs"; } }
         public string Language { get { return LanguageNames.CSharp; } }
-        public IEnumerable<string> Extensions { get; } = new[] { ".csx" };
+        public IEnumerable<string> Extensions { get; } = new[] { ".___" };
 
         public void Initalize(IConfiguration configuration)
         {

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "OmniSharp": {
+      "commandName": "Project",
+      "commandLineArgs": "-p 8800 -v -s D:\\src\\gh.fabiocav\\azure-webjobs-sdk-script\\sample"
+    }
+  }
+}
