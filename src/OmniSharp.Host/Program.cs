@@ -24,7 +24,7 @@ namespace OmniSharp
 
             var applicationRoot = Directory.GetCurrentDirectory();
             var serverPort = 2000;
-            var logLevel = LogLevel.Information;
+            var logLevel = LogLevel.Debug;
             var hostPID = -1;
             var transportType = TransportType.Http;
             var otherArgs = new List<string>();

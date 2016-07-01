@@ -54,69 +54,74 @@ namespace OmniSharp.ScriptCs
 
         public void Initalize(IConfiguration configuration)
         {
-            Logger.LogInformation($"Detecting CSX files in '{Env.Path}'.");
-
-            // Nothing to do if there are no CSX files
-            var allCsxFiles = Directory.GetFiles(Env.Path, "*.csx", SearchOption.AllDirectories);
-            if (allCsxFiles.Length == 0)
+            if (true) // Update to check for Azure Functions files
             {
-                Logger.LogInformation("Could not find any CSX files");
                 return;
             }
 
-            Context.RootPath = Env.Path;
-            Logger.LogInformation($"Found {allCsxFiles.Length} CSX files.");
+            //Logger.LogInformation($"Detecting CSX files in '{Env.Path}'.");
 
-            // TODO: write and adapter to implement the new ScriptCs ILogProvider interface
-            #pragma warning disable 0618
-            //script name is added here as a fake one (dir path not even a real file); this is OK though -> it forces MEF initialization
-            var baseScriptServicesBuilder = new ScriptServicesBuilder(new ScriptConsole(), LogManager.GetCurrentClassLogger())
-                    .LogLevel(LogLevel.Debug)
-                    .Cache(false)
-                    .Repl(false)
-                    .ScriptName(Env.Path)
-                    .ScriptEngine<NullScriptEngine>();
+            //// Nothing to do if there are no CSX files
+            //var allCsxFiles = Directory.GetFiles(Env.Path, "*.csx", SearchOption.AllDirectories);
+            //if (allCsxFiles.Length == 0)
+            //{
+            //    Logger.LogInformation("Could not find any CSX files");
+            //    return;
+            //}
 
-            var scriptServices = baseScriptServicesBuilder.Build();
+            //Context.RootPath = Env.Path;
+            //Logger.LogInformation($"Found {allCsxFiles.Length} CSX files.");
 
-            var scriptPacks = scriptServices.ScriptPackResolver.GetPacks().ToList();
-            var assemblyPaths = scriptServices.AssemblyResolver.GetAssemblyPaths(Env.Path);
+            //// TODO: write and adapter to implement the new ScriptCs ILogProvider interface
+            //#pragma warning disable 0618
+            ////script name is added here as a fake one (dir path not even a real file); this is OK though -> it forces MEF initialization
+            //var baseScriptServicesBuilder = new ScriptServicesBuilder(new ScriptConsole(), LogManager.GetCurrentClassLogger())
+            //        .LogLevel(LogLevel.Debug)
+            //        .Cache(false)
+            //        .Repl(false)
+            //        .ScriptName(Env.Path)
+            //        .ScriptEngine<NullScriptEngine>();
 
-            // Common usings and references
-            Context.CommonUsings.UnionWith(ScriptExecutor.DefaultNamespaces);
+            //var scriptServices = baseScriptServicesBuilder.Build();
 
-            Context.CommonReferences.UnionWith(DotNetBaseReferences);
-            Context.CommonReferences.UnionWith(scriptServices.MakeMetadataReferences(ScriptExecutor.DefaultReferences));       // ScriptCs defaults
-            Context.CommonReferences.UnionWith(scriptServices.MakeMetadataReferences(assemblyPaths));                        // nuget references
+            //var scriptPacks = scriptServices.ScriptPackResolver.GetPacks().ToList();
+            //var assemblyPaths = scriptServices.AssemblyResolver.GetAssemblyPaths(Env.Path);
 
-            if (scriptPacks != null && scriptPacks.Any())
-            {
-                var scriptPackSession = new ScriptPackSession(scriptPacks, new string[0]);
-                scriptPackSession.InitializePacks();
+            //// Common usings and references
+            //Context.CommonUsings.UnionWith(ScriptExecutor.DefaultNamespaces);
 
-                //script pack references
-                Context.CommonReferences.UnionWith(scriptServices.MakeMetadataReferences(scriptPackSession.References));
+            //Context.CommonReferences.UnionWith(DotNetBaseReferences);
+            //Context.CommonReferences.UnionWith(scriptServices.MakeMetadataReferences(ScriptExecutor.DefaultReferences));       // ScriptCs defaults
+            //Context.CommonReferences.UnionWith(scriptServices.MakeMetadataReferences(assemblyPaths));                        // nuget references
 
-                //script pack usings
-                Context.CommonUsings.UnionWith(scriptPackSession.Namespaces);
+            //if (scriptPacks != null && scriptPacks.Any())
+            //{
+            //    var scriptPackSession = new ScriptPackSession(scriptPacks, new string[0]);
+            //    scriptPackSession.InitializePacks();
 
-                Context.ScriptPacks.UnionWith(scriptPackSession.Contexts.Select(pack => pack.GetType().ToString()));
-            }
+            //    //script pack references
+            //    Context.CommonReferences.UnionWith(scriptServices.MakeMetadataReferences(scriptPackSession.References));
 
-            // Process each .CSX file
-            foreach (var csxPath in allCsxFiles)
-            {
-                try
-                {
-                    CreateCsxProject(csxPath, baseScriptServicesBuilder);
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError($"{csxPath} will be ignored due to the following error:", ex.ToString());
-                    Logger.LogError(ex.ToString());
-                    Logger.LogError(ex.InnerException?.ToString() ?? "No inner exception.");
-                }
-            }
+            //    //script pack usings
+            //    Context.CommonUsings.UnionWith(scriptPackSession.Namespaces);
+
+            //    Context.ScriptPacks.UnionWith(scriptPackSession.Contexts.Select(pack => pack.GetType().ToString()));
+            //}
+
+            //// Process each .CSX file
+            //foreach (var csxPath in allCsxFiles)
+            //{
+            //    try
+            //    {
+            //        CreateCsxProject(csxPath, baseScriptServicesBuilder);
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        Logger.LogError($"{csxPath} will be ignored due to the following error:", ex.ToString());
+            //        Logger.LogError(ex.ToString());
+            //        Logger.LogError(ex.InnerException?.ToString() ?? "No inner exception.");
+            //    }
+            //}
         }
 
         /// <summary>
