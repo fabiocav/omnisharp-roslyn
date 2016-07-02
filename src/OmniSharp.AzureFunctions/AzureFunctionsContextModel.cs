@@ -16,9 +16,6 @@ namespace OmniSharp.AzureFunctions
             CsxReferences = context.CsxReferences.ToDictionary(x => x.Key, x => x.Value.Select(z => new ReferenceModel(z)));
             CsxLoadReferences = context.CsxLoadReferences.ToDictionary(x => x.Key, x => x.Value.Select(z => new ProjectInfoModel(z)));
             CsxUsings = context.CsxUsings.ToDictionary(x => x.Key, x => x.Value.AsEnumerable());
-            ScriptPacks = context.ScriptPacks;
-            CommonReferences = context.CommonReferences.Select(z => new ReferenceModel(z));
-            CommonUsings = context.CommonUsings;
         }
 
         public IEnumerable<string> CsxFilesBeingProcessed { get; }
@@ -30,11 +27,6 @@ namespace OmniSharp.AzureFunctions
         public Dictionary<string, IEnumerable<ProjectInfoModel>> CsxLoadReferences { get; }
         public Dictionary<string, IEnumerable<string>> CsxUsings { get; }
 
-        public HashSet<string> ScriptPacks { get; }
-
-        // Nuget and ScriptPack stuff
-        public IEnumerable<ReferenceModel> CommonReferences { get; }
-        public IEnumerable<string> CommonUsings { get; }
 
         public string RootPath { get; set; }
     }
