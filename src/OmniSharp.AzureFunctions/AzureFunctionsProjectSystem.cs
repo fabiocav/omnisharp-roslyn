@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Composition;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,8 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -29,13 +32,7 @@ namespace OmniSharp.AzureFunctions
                 "System.Configuration",
                 "System.Xml",
                 "System.Net.Http",
-                "Microsoft.CSharp",
-                //typeof(object).Assembly.Location,
-                //typeof(IAsyncCollector<>).Assembly.Location, /*Microsoft.Azure.WebJobs*/
-                //typeof(JobHost).Assembly.Location, /*Microsoft.Azure.WebJobs.Host*/
-                //typeof(CoreJobHostConfigurationExtensions).Assembly.Location, /*Microsoft.Azure.WebJobs.Extensions*/
-                //typeof(System.Web.Http.ApiController).Assembly.Location, /*System.Web.Http*/
-                //typeof(System.Net.Http.HttpClientExtensions).Assembly.Location /*System.Net.Http.Formatting*/
+                "Microsoft.CSharp"
             };
 
         private static readonly string[] DefaultNamespaceImports =
@@ -61,17 +58,7 @@ namespace OmniSharp.AzureFunctions
             Workspace.WorkspaceChanged += Workspace_WorkspaceChanged;
         }
 
-        private void Workspace_WorkspaceChanged(object sender, WorkspaceChangeEventArgs e)
-        {
-            Console.WriteLine(e.DocumentId);
-        }
-
-        CSharpParseOptions CsxParseOptions { get; } = new CSharpParseOptions(LanguageVersion.CSharp6, DocumentationMode.Parse, SourceCodeKind.Script);
-        IEnumerable<MetadataReference> DotNetBaseReferences { get; } = new[]
-            {
-                MetadataReference.CreateFromFile(typeof(object).GetTypeInfo().Assembly.Location),        // mscorlib
-                MetadataReference.CreateFromFile(typeof(Enumerable).GetTypeInfo().Assembly.Location),    // systemCore
-            };
+        CSharpParseOptions ScriptParseOptions { get; } = new CSharpParseOptions(LanguageVersion.CSharp6, DocumentationMode.Parse, SourceCodeKind.Script);
 
         OmnisharpWorkspace Workspace { get; }
 
@@ -118,42 +105,70 @@ namespace OmniSharp.AzureFunctions
                 outputKind: OutputKind.DynamicallyLinkedLibrary,
                 usings: DefaultNamespaceImports);
 
-            string frameworkPath = Path.GetDirectoryName(typeof(object).Assembly.Location);
-            
-            var packageManager = new PackageAssemblyResolver(Path.GetDirectoryName(functionScriptFile));
-            var metadataReferences = DefaultAssemblyReferences.Union(packageManager.AssemblyReferences).Select(a =>
-            {
-                if (Path.IsPathRooted(a))
-                {
-                    return MetadataReference.CreateFromFile(a);
-                }
-                else
-                {
-                    return MetadataReference.CreateFromFile(Path.Combine(frameworkPath, a + ".dll"));
-                }
-            });
+            List<MetadataReference> references = ResolveReferences(functionScriptFile);
 
-            var references = new List<MetadataReference>(metadataReferences);
-            references.Add(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+            ScriptOptions scriptOptions = ScriptOptions.Default
+                .WithMetadataResolver(new FunctionMetadataResolver(Path.GetDirectoryName(functionScriptFile)))
+                .WithReferences(references)
+                .WithImports(DefaultNamespaceImports)
+                .WithFilePath(functionScriptFile)
+                .WithSourceResolver(new SourceFileResolver(ImmutableArray<string>.Empty, Path.GetDirectoryName(functionScriptFile)));
 
-            string scriptReferencesPath = Path.Combine(Path.GetDirectoryName(this.GetType().Assembly.Location), "scriptreferences");
 
-            references.AddRange(Directory.GetFiles(scriptReferencesPath, "*.dll").Select(a => MetadataReference.CreateFromFile(a)));
+            Script<object> script = CSharpScript.Create(File.ReadAllText(functionScriptFile), scriptOptions, null);
+            var compilation = script.GetCompilation();
 
             var project = ProjectInfo.Create(
                          id: ProjectId.CreateNewId(Guid.NewGuid().ToString()),
                          version: VersionStamp.Create(),
-                         name: Path.GetDirectoryName(functionScriptFile),
+                         name: Directory.GetParent(functionScriptFile).Name,
+                         filePath: Path.Combine(Path.GetDirectoryName(functionScriptFile), "function.json"),
                          assemblyName: $"{Directory.GetParent(functionScriptFile).Name}.dll",
                          language: LanguageNames.CSharp,
-                         compilationOptions: compilationOptions,
-                         parseOptions: CsxParseOptions,
-                         metadataReferences: references,
+                         compilationOptions: compilation.Options,
+                         parseOptions: ScriptParseOptions,
+                         metadataReferences: compilation.References,
                          isSubmission: true);
 
             Workspace.AddProject(project);
 
             AddFile(functionScriptFile, project);
+        }
+
+        private List<MetadataReference> ResolveReferences(string functionScriptFile)
+        {
+            List<MetadataReference> references = new List<MetadataReference>();
+
+            string frameworkPath = Path.GetDirectoryName(typeof(object).Assembly.Location);
+
+            var packageManager = new PackageAssemblyResolver(Path.GetDirectoryName(functionScriptFile));
+
+            foreach (var assemblyReference in packageManager.AssemblyReferences.Union(DefaultAssemblyReferences))
+            {
+                var path = assemblyReference;
+                if (!Path.IsPathRooted(path))
+                {
+                    path = Path.Combine(frameworkPath, assemblyReference + ".dll");
+                }
+
+                if (File.Exists(path))
+                {
+                    references.Add(MetadataReference.CreateFromFile(path));
+                }
+            }
+
+            // mscorlib
+            references.Add(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+
+            // Default references
+            string scriptReferencesPath = Path.Combine(Path.GetDirectoryName(this.GetType().Assembly.Location), "scriptreferences");
+
+            if (Directory.Exists(scriptReferencesPath))
+            {
+                references.AddRange(Directory.GetFiles(scriptReferencesPath, "*.dll").Select(a => MetadataReference.CreateFromFile(a)));
+            }
+
+            return references;
         }
 
         private void AddFile(string functionScriptFile, ProjectInfo project)
@@ -173,82 +188,6 @@ namespace OmniSharp.AzureFunctions
             }
         }
 
-        ///// <summary>
-        ///// Each .csx file is to be wrapped in its own project.
-        ///// This recursive function does a depth first traversal of the .csx files, following #load references
-        ///// </summary>
-        //private ProjectInfo CreateCsxProject(string csxPath, IScriptServicesBuilder baseBuilder)
-        //{
-        //    // Circular #load chains are not allowed
-        //    if (Context.CsxFilesBeingProcessed.Contains(csxPath))
-        //    {
-        //        throw new Exception($"Circular refrences among script files are not allowed: {csxPath} #loads files that end up trying to #load it again.");
-        //    }
-
-        //    // If we already have a project for this path just use that
-        //    if (Context.CsxFileProjects.ContainsKey(csxPath))
-        //    {
-        //        return Context.CsxFileProjects[csxPath];
-        //    }
-
-        //    // Process the file with ScriptCS first
-        //    Logger.LogInformation($"Processing script {csxPath}...");
-        //    Context.CsxFilesBeingProcessed.Add(csxPath);
-        //    var localScriptServices = baseBuilder.ScriptName(csxPath).Build();
-        //    var processResult = localScriptServices.FilePreProcessor.ProcessFile(csxPath);
-
-        //    // CSX file usings
-        //    Context.CsxUsings[csxPath] = processResult.Namespaces.ToList();
-
-        //    var compilationOptions = new CSharpCompilationOptions(
-        //        outputKind: OutputKind.DynamicallyLinkedLibrary,
-        //        usings: Context.CommonUsings.Union(Context.CsxUsings[csxPath]));
-
-        //    // #r refernces
-        //    Context.CsxReferences[csxPath] = localScriptServices.MakeMetadataReferences(processResult.References).ToList();
-
-        //    //#load references recursively
-        //    Context.CsxLoadReferences[csxPath] =
-        //        processResult
-        //            .LoadedScripts
-        //            .Distinct()
-        //            .Except(new[] { csxPath })
-        //            .Select(loadedCsxPath => CreateCsxProject(loadedCsxPath, baseBuilder))
-        //            .ToList();
-
-        //    // Create the wrapper project and add it to the workspace
-        //    Logger.LogDebug($"Creating project for script {csxPath}.");
-        //    var csxFileName = Path.GetFileName(csxPath);
-        //    var project = ProjectInfo.Create(
-        //        id: ProjectId.CreateNewId(Guid.NewGuid().ToString()),
-        //        version: VersionStamp.Create(),
-        //        name: csxFileName,
-        //        assemblyName: $"{csxFileName}.dll",
-        //        language: LanguageNames.CSharp,
-        //        compilationOptions: compilationOptions,
-        //        parseOptions: CsxParseOptions,
-        //        metadataReferences: Context.CommonReferences.Union(Context.CsxReferences[csxPath]),
-        //        projectReferences: Context.CsxLoadReferences[csxPath].Select(p => new ProjectReference(p.Id)),
-        //        isSubmission: true,
-        //        hostObjectType: typeof(IScriptHost));
-
-        //    Workspace.AddProject(project);
-
-        //    AddFile(csxPath, project.Id);
-
-        //    //----------LOG ONLY------------
-        //    Logger.LogDebug($"All references by {csxFileName}: \n{string.Join("\n", project.MetadataReferences.Select(r => r.Display))}");
-        //    Logger.LogDebug($"All #load projects by {csxFileName}: \n{string.Join("\n", Context.CsxLoadReferences[csxPath].Select(p => p.Name))}");
-        //    Logger.LogDebug($"All usings in {csxFileName}: \n{string.Join("\n", (project.CompilationOptions as CSharpCompilationOptions)?.Usings ?? new ImmutableArray<string>())}");
-        //    //------------------------------
-
-        //    // Traversal administration
-        //    Context.CsxFileProjects[csxPath] = project;
-        //    Context.CsxFilesBeingProcessed.Remove(csxPath);
-
-        //    return project;
-        //}
-
         Task<object> IProjectSystem.GetProjectModel(string path)
         {
             return Task.FromResult<object>(null);
@@ -257,6 +196,11 @@ namespace OmniSharp.AzureFunctions
         Task<object> IProjectSystem.GetInformationModel(WorkspaceInformationRequest request)
         {
             return Task.FromResult<object>(new AzureFunctionsContextModel(Context));
+        }
+
+        private void Workspace_WorkspaceChanged(object sender, WorkspaceChangeEventArgs e)
+        {
+            Console.WriteLine(e.DocumentId);
         }
     }
 }

@@ -22,7 +22,6 @@
   "frameworks": {
     "net46": {
       "dependencies": {
-        "OmniSharp.ScriptCs": "1.0.0",
         "OmniSharp.AzureFunctions": "1.0.0"
       }
     },

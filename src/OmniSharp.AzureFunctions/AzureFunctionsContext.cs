@@ -19,12 +19,7 @@ namespace OmniSharp.AzureFunctions
 
         public Dictionary<string, List<string>> CsxUsings { get; } = new Dictionary<string, List<string>>();
 
-        public HashSet<string> ScriptPacks { get; } = new HashSet<string>();
-
-        // Nuget and ScriptPack stuff
-        public HashSet<MetadataReference> CommonReferences { get; } = new HashSet<MetadataReference>();
-        public HashSet<string> CommonUsings { get; } = new HashSet<string>();
-
+        
         public string RootPath { get; set; }
     }
 }
