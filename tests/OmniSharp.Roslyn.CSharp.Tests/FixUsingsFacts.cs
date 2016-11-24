@@ -7,7 +7,7 @@ using OmniSharp.Models;
 using OmniSharp.Options;
 using OmniSharp.Roslyn.CSharp.Services.Refactoring;
 using OmniSharp.Services;
-using OmniSharp.Tests;
+using TestUtility;
 using TestUtility.Annotate;
 using TestUtility.Fake;
 using Xunit;
@@ -310,7 +310,7 @@ namespace OmniSharp {
         }
 
 
-        [Fact(Skip = "Need to find a way to load System.Linq in to test host.")]
+        [Fact]
         public async Task FixUsings_AddsUsingLinqMethodSyntax()
         {
             const string fileContents = @"namespace OmniSharp
@@ -407,6 +407,7 @@ namespace OmniSharp
         }
     }
 }";
+
             await AssertBufferContents(fileContents, expectedFileContents);
         }
 

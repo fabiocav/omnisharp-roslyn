@@ -188,19 +188,19 @@ namespace OmniSharp.AzureFunctions
             }
         }
 
-        Task<object> IProjectSystem.GetProjectModel(string path)
-        {
-            return Task.FromResult<object>(null);
-        }
-
-        Task<object> IProjectSystem.GetInformationModel(WorkspaceInformationRequest request)
-        {
-            return Task.FromResult<object>(new AzureFunctionsContextModel(Context));
-        }
-
         private void Workspace_WorkspaceChanged(object sender, WorkspaceChangeEventArgs e)
         {
             Console.WriteLine(e.DocumentId);
+        }
+
+        public Task<object> GetWorkspaceModelAsync(WorkspaceInformationRequest request)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<object> GetProjectModelAsync(string filePath)
+        {
+            throw new NotImplementedException();
         }
     }
 }

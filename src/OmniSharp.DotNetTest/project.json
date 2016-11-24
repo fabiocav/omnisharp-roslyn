@@ -2,10 +2,11 @@
   "version": "1.0.0-*",
   "dependencies": {
     "OmniSharp.Abstractions": "1.0.0",
+    "Microsoft.CodeAnalysis.CSharp": "2.0.0-rc",
     "Microsoft.Extensions.Testing.Abstractions": "1.0.0-preview2-003121"
   },
   "frameworks": {
-    "net451": {
+    "net46": {
       "frameworkAssemblies": {
         "System.IO": "",
         "System.Collections": ""
@@ -14,7 +15,6 @@
     "netstandard1.6": {
       "imports": [
         "dotnet5.6",
-        "dnxcore50",
         "portable-net45+win8"
       ],
       "dependencies": {

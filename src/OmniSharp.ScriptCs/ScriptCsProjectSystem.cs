@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Composition;
 using System.IO;
 using System.Linq;
@@ -12,13 +13,12 @@ using Microsoft.CodeAnalysis.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Models.v1;
+using OmniSharp.ScriptCs.Extensions;
 using OmniSharp.Services;
 using ScriptCs;
 using ScriptCs.Contracts;
-using LogLevel = ScriptCs.Contracts.LogLevel;
 using ScriptCs.Hosting;
-using OmniSharp.ScriptCs.Extensions;
-using System.Collections.Immutable;
+using LogLevel = ScriptCs.Contracts.LogLevel;
 
 namespace OmniSharp.ScriptCs
 {
@@ -215,12 +215,12 @@ namespace OmniSharp.ScriptCs
             }
         }
 
-        Task<object> IProjectSystem.GetProjectModel(string path)
+        Task<object> IProjectSystem.GetProjectModelAsync(string filePath)
         {
             return Task.FromResult<object>(null);
         }
 
-        Task<object> IProjectSystem.GetInformationModel(WorkspaceInformationRequest request)
+        Task<object> IProjectSystem.GetWorkspaceModelAsync(WorkspaceInformationRequest request)
         {
             return Task.FromResult<object>(new ScriptCsContextModel(Context));
         }

@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Immutable;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Composition;
 using System.IO;
 using System.Linq;
@@ -19,7 +19,6 @@ using OmniSharp.DotNet.Tools;
 using OmniSharp.Models;
 using OmniSharp.Models.v1;
 using OmniSharp.Services;
-using OmniSharp.DotNet.Projects;
 
 namespace OmniSharp.DotNet
 {
@@ -63,33 +62,48 @@ namespace OmniSharp.DotNet
 
         public string Language => LanguageNames.CSharp;
 
-        public Task<object> GetInformationModel(WorkspaceInformationRequest request)
+        Task<object> IProjectSystem.GetWorkspaceModelAsync(WorkspaceInformationRequest request)
         {
-            var workspaceInfo = new DotNetWorkspaceInformation(
-                entries: _projectStates.GetStates,
-                includeSourceFiles: !request.ExcludeSourceFiles);
-
-            return Task.FromResult<object>(workspaceInfo);
+            return Task.FromResult<object>(
+                new DotNetWorkspaceInformation(
+                    entries: _projectStates.GetStates,
+                    includeSourceFiles: !request.ExcludeSourceFiles));
         }
 
-        public Task<object> GetProjectModel(string path)
+        Task<object> IProjectSystem.GetProjectModelAsync(string filePath)
         {
-            _logger.LogDebug($"GetProjectModel {path}");
-            var document = _omnisharpWorkspace.GetDocument(path);
-            if (document == null)
+            _logger.LogDebug($"GetProjectModel: {filePath}");
+
+            var document = _omnisharpWorkspace.GetDocument(filePath);
+
+            var projectFilePath = document != null
+                ? document.Project.FilePath
+                : filePath;
+
+            var projectEntry = _projectStates.GetEntry(projectFilePath);
+            if (projectEntry == null)
             {
                 return Task.FromResult<object>(null);
             }
 
-            var projectPath = document.Project.FilePath;
-            _logger.LogDebug($"GetProjectModel {path}=>{projectPath}");
-            var projectEntry = _projectStates.GetOrAddEntry(projectPath);
-            var projectInformation = new DotNetProjectInformation(projectEntry);
-            return Task.FromResult<object>(projectInformation);
+            return Task.FromResult<object>(
+                new DotNetProjectInformation(projectEntry));
         }
 
         public void Initalize(IConfiguration configuration)
         {
+            bool enabled;
+            if (!bool.TryParse(configuration["enabled"], out enabled))
+            {
+                enabled = true;
+            }
+
+            if (!enabled)
+            {
+                _logger.LogInformation("DotNetProjectSystem is disabled");
+                return;
+            }
+
             _logger.LogInformation($"Initializing in {_environment.Path}");
 
             if (!bool.TryParse(configuration["enablePackageRestore"], out _enableRestorePackages))
@@ -416,7 +430,7 @@ namespace OmniSharp.DotNet
             LanguageVersion languageVersion;
             if (!Enum.TryParse<LanguageVersion>(value, ignoreCase: true, result: out languageVersion))
             {
-                languageVersion = LanguageVersion.CSharp6;
+                languageVersion = LanguageVersion.Default;
             }
 
             return languageVersion;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,7 @@ namespace OmniSharp
             var otherArgs = new List<string>();
             var plugins = new List<string>();
             var serverInterface = "localhost";
+            Encoding encoding = null;
 
             var enumerator = args.GetEnumerator();
 
@@ -73,6 +75,11 @@ namespace OmniSharp
                     enumerator.MoveNext();
                     serverInterface = (string)enumerator.Current;
                 }
+                else if (arg == "--encoding")
+                {
+                    enumerator.MoveNext();
+                    encoding = Encoding.GetEncoding((string)enumerator.Current);
+                }
                 else
                 {
                     otherArgs.Add((string)enumerator.Current);
@@ -83,6 +90,15 @@ namespace OmniSharp
 
             var config = new ConfigurationBuilder()
                 .AddCommandLine(new[] { "--server.urls", $"http://{serverInterface}:{serverPort}" });
+
+            // If the --encoding switch was specified, we need to set the InputEncoding and OutputEncoding before
+            // constructing the SharedConsoleWriter. Otherwise, it might be created with the wrong encoding since
+            // it wraps around Console.Out, which gets recreated when OutputEncoding is set.
+            if (transportType == TransportType.Stdio && encoding != null)
+            {
+                Console.InputEncoding = encoding;
+                Console.OutputEncoding = encoding;
+            }
 
             var writer = new SharedConsoleWriter();
 
