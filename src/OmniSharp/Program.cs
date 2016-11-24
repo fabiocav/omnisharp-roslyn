@@ -8,7 +8,7 @@ public class Program
     public static void Main(string[] args)
     {
         var argsList = new List<string>(args);
-        if (true)
+        if (argsList.Contains("--debug"))
         {
             argsList.Remove("--debug");
             Console.WriteLine($"Attach debugger to process {Process.GetCurrentProcess().Id} to continue. ..");
