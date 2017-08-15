@@ -45,3 +45,4 @@ tools/*
 # VS Code
 /.vscode/settings.json
 /.vscode/launch.json
+/node_modules

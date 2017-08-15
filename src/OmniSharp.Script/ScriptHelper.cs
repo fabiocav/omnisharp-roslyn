@@ -21,18 +21,21 @@ namespace OmniSharp.Script
             "System",
             "System.IO",
             "System.Collections.Generic",
-            "System.Console",
             "System.Diagnostics",
-            "System.Dynamic",
             "System.Linq",
-            "System.Linq.Expressions",
             "System.Text",
-            "System.Threading.Tasks"
+            "System.Threading.Tasks",
+            "Microsoft.Extensions.Logging",
+            "Microsoft.Azure.WebJobs",
+            "Microsoft.Azure.WebJobs.Host",
+            "System.Net.Http"
         };
 
         private static readonly CSharpParseOptions ParseOptions = new CSharpParseOptions(LanguageVersion.Default, DocumentationMode.Parse, SourceCodeKind.Script);
 
         private readonly Lazy<CSharpCompilationOptions> _compilationOptions;
+
+        public static string FunctionsAssembliesPath => Environment.ExpandEnvironmentVariables("%appdata%\\npm\\node_modules\\azure-functions-core-tools\\bin");
 
         public ScriptHelper(IConfiguration configuration = null)
         {
@@ -87,9 +90,10 @@ namespace OmniSharp.Script
                     enableScriptNuGetReferences = false;
                 }
             }
-            
-            return enableScriptNuGetReferences ? new CachingScriptMetadataResolver(new NuGetMetadataReferenceResolver(ScriptMetadataResolver.Default)) 
-                : new CachingScriptMetadataResolver(ScriptMetadataResolver.Default);
+
+            var resolver = ScriptMetadataResolver.Default.WithSearchPaths(FunctionsAssembliesPath);
+            return enableScriptNuGetReferences ? new CachingScriptMetadataResolver(new NuGetMetadataReferenceResolver(resolver)) 
+                : new CachingScriptMetadataResolver(resolver);
         }
  
         public ProjectInfo CreateProject(string csxFileName, IEnumerable<MetadataReference> references, IEnumerable<string> namespaces = null)

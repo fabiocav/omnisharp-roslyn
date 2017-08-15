@@ -88,6 +88,7 @@ namespace OmniSharp.Script
             var runtimeContext = runtimeContexts?.FirstOrDefault();
             var commonReferences = new HashSet<MetadataReference>();
 
+            AddFunctionsMetadataReferences(commonReferences);
             // if we have no context, then we also have no dependencies
             // we will assume desktop framework
             // and add default CLR references
@@ -144,6 +145,44 @@ namespace OmniSharp.Script
             }
         }
 
+        private void AddFunctionsMetadataReferences(HashSet<MetadataReference> commonReferences)
+        {
+            Assembly fromFunctionsBin(string name)
+            {
+
+                string path = Path.Combine(ScriptHelper.FunctionsAssembliesPath, name + ".dll");
+
+                if (File.Exists(path))
+                {
+#if NET46
+                    return Assembly.LoadFrom(path);                
+#endif
+                }
+
+                return null;
+            }
+
+            string[] functionsReferences =
+            {
+                "Microsoft.Azure.WebJobs",
+                "Microsoft.Azure.WebJobs.Host",
+                "Microsoft.Azure.WebJobs.Extensions",
+                "System.Net.Http",
+                "System.Net.Http.Formatting",
+                "Microsof.Extensions.Logging.Abstractions"
+            };
+
+            var references = functionsReferences
+                .Select(r => fromFunctionsBin(r))
+                .Where(a => a != null)
+                .Select(a => _metadataFileReferenceCache.GetMetadataReference(a.Location));
+
+            foreach (var reference in references)
+            {
+                commonReferences.Add(reference);
+            }
+        }
+
         private void AddDefaultClrMetadataReferences(ProjectContext projectContext, HashSet<MetadataReference> commonReferences)
         {
             if (projectContext == null || projectContext.TargetFramework?.Framework != ".NETCoreApp")
@@ -155,6 +194,7 @@ namespace OmniSharp.Script
                     typeof(Stack<>).GetTypeInfo().Assembly,
                     typeof(Lazy<,>).GetTypeInfo().Assembly,
                     FromName("System.Runtime"),
+                    FromName("System.Xml"),
                     FromName("mscorlib")
                 };
 
